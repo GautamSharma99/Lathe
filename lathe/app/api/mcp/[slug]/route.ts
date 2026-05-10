@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { initDb, getServerBySlug, incrementInstallCount } from '@/lib/db'
+import { initDb, getServerBySlug, incrementInstallCount, getCachedData, updateCachedData } from '@/lib/db'
 import { crawlSite, executeWireAction } from '@/lib/anakin'
 import type { Server } from '@/lib/types'
 
@@ -80,7 +80,24 @@ export async function POST(
     const toolParams = (body.params as Record<string, unknown>)?.arguments as Record<string, unknown> || {}
 
     try {
+      // Check cache first
+      const cached = await getCachedData(slug)
+      if (cached) {
+        console.log(`[MCP cache HIT] ${slug} — last crawled ${cached.lastCrawledAt}`)
+        // Increment install count fire-and-forget after response
+        incrementInstallCount(slug).catch(() => {})
+        return rpcResult(body.id, {
+          content: [{ type: 'text', text: JSON.stringify(cached.data, null, 2) }],
+        })
+      }
+
+      console.log(`[MCP cache MISS] ${slug} — crawling Anakin now`)
       const data = await fetchData(server, toolParams)
+
+      // Persist to cache and increment count — both fire-and-forget
+      updateCachedData(slug, data).catch(() => {})
+      incrementInstallCount(slug).catch(() => {})
+
       return rpcResult(body.id, {
         content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
       })
@@ -124,9 +141,6 @@ async function fetchData(server: Server, params: Record<string, unknown>) {
 
   const crawlResult = await crawlSite(targetUrl)
   const pages = crawlResult.pages || crawlResult.data || []
-
-  // Increment install count on first real use
-  await incrementInstallCount(server.slug)
 
   return pages.map(p => ({
     url: p.url,

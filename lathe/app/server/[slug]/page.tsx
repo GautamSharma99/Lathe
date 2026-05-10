@@ -1,4 +1,5 @@
-import { initDb, getServerBySlug, incrementInstallCount } from '@/lib/db'
+import { initDb, getServerBySlug } from '@/lib/db'
+import { timeAgo } from '@/lib/utils'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import CopyButton from './CopyButton'
@@ -48,6 +49,9 @@ export default async function ServerPage({
             )}
           </div>
           <p className="text-zinc-400 text-sm">{server.description}</p>
+          <p className="text-sm text-zinc-500 mt-1">
+            Last updated: {timeAgo(server.last_crawled_at)}
+          </p>
           <a
             href={server.source_url}
             target="_blank"

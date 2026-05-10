@@ -32,6 +32,14 @@ export async function initDb() {
       created_at TEXT DEFAULT (datetime('now'))
     );
   `)
+
+  // Add cache columns — wrapped in try/catch because they may already exist
+  for (const sql of [
+    `ALTER TABLE servers ADD COLUMN last_crawled_at TEXT`,
+    `ALTER TABLE servers ADD COLUMN cached_data TEXT`,
+  ]) {
+    try { await db.execute(sql) } catch { /* column already exists */ }
+  }
 }
 
 export async function createJob(id: string): Promise<void> {
@@ -72,7 +80,7 @@ export async function getJob(id: string): Promise<Job | null> {
   return rowToJob(result.rows[0])
 }
 
-export async function createServer(server: Omit<Server, 'install_count' | 'created_at'>): Promise<void> {
+export async function createServer(server: Omit<Server, 'install_count' | 'created_at' | 'last_crawled_at' | 'cached_data'>): Promise<void> {
   await db.execute({
     sql: `INSERT OR IGNORE INTO servers (id, slug, name, description, source_url, schema_json, mcp_config, server_type, wire_action_id)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -110,6 +118,35 @@ export async function incrementInstallCount(slug: string): Promise<void> {
   await db.execute({ sql: `UPDATE servers SET install_count = install_count + 1 WHERE slug = ?`, args: [slug] })
 }
 
+const CACHE_TTL_MINUTES = 15
+
+export async function getCachedData(slug: string): Promise<{ data: unknown; lastCrawledAt: string } | null> {
+  const result = await db.execute({
+    sql: `SELECT last_crawled_at, cached_data FROM servers WHERE slug = ?`,
+    args: [slug],
+  })
+  if (result.rows.length === 0) return null
+
+  const row = result.rows[0]
+  const cachedData = row.cached_data as string | null
+  const lastCrawledAt = row.last_crawled_at as string | null
+
+  if (!cachedData || !lastCrawledAt) return null
+
+  const ageMs = Date.now() - new Date(lastCrawledAt).getTime()
+  const ageMinutes = ageMs / 1000 / 60
+  if (ageMinutes > CACHE_TTL_MINUTES) return null
+
+  return { data: JSON.parse(cachedData), lastCrawledAt }
+}
+
+export async function updateCachedData(slug: string, data: unknown): Promise<void> {
+  await db.execute({
+    sql: `UPDATE servers SET cached_data = ?, last_crawled_at = ? WHERE slug = ?`,
+    args: [JSON.stringify(data), new Date().toISOString(), slug],
+  })
+}
+
 function rowToServer(row: Record<string, unknown>): Server {
   return {
     id: row.id as string,
@@ -123,6 +160,8 @@ function rowToServer(row: Record<string, unknown>): Server {
     wire_action_id: row.wire_action_id as string | null,
     install_count: row.install_count as number,
     created_at: row.created_at as string,
+    last_crawled_at: (row.last_crawled_at as string | null) ?? null,
+    cached_data: (row.cached_data as string | null) ?? null,
   }
 }
 

@@ -21,6 +21,8 @@ export interface Server {
   wire_action_id: string | null
   install_count: number
   created_at: string
+  last_crawled_at: string | null
+  cached_data: string | null
 }
 
 export interface Job {

@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import type { Server } from '@/lib/types'
+import { timeAgo } from '@/lib/utils'
 
 export default function ServerCard({ server }: { server: Server }) {
   const domain = (() => {
@@ -37,6 +38,10 @@ export default function ServerCard({ server }: { server: Server }) {
       {server.description && (
         <p className="text-sm text-zinc-400 line-clamp-2">{server.description}</p>
       )}
+
+      <p className="text-xs text-zinc-600">
+        Updated {timeAgo(server.last_crawled_at)}
+      </p>
 
       <div className="flex items-center justify-between pt-1">
         <span className="text-xs text-zinc-600">{server.install_count} installs</span>

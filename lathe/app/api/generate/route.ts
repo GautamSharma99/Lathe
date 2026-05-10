@@ -5,6 +5,7 @@ import { crawlSite, agenticSearch } from '@/lib/anakin'
 import { checkWireCatalog } from '@/lib/wire'
 import { inferSchema } from '@/lib/schema'
 import { generateMCPConfig, slugFromUrl, nameFromUrl, slugify } from '@/lib/generators/mcp'
+type NewServer = Omit<Server, 'install_count' | 'created_at' | 'last_crawled_at' | 'cached_data'>
 import type { Server } from '@/lib/types'
 
 function isUrl(input: string): boolean {
@@ -49,7 +50,7 @@ async function runPipeline(jobId: string, input: string) {
     const serverId = uuidv4()
     const mcpConfig = generateMCPConfig(slug, baseUrl)
 
-    const server: Omit<Server, 'install_count' | 'created_at'> = {
+    const server: NewServer = {
       id: serverId,
       slug,
       name,
@@ -89,7 +90,7 @@ async function runPipeline(jobId: string, input: string) {
     const finalId = existing ? existing.id : serverId
 
     if (!existing) {
-      const server: Omit<Server, 'install_count' | 'created_at'> = {
+      const server: NewServer = {
         id: serverId,
         slug,
         name,
@@ -155,7 +156,7 @@ async function runPipeline(jobId: string, input: string) {
   const finalId = existing ? existing.id : serverId
 
   if (!existing) {
-    const server: Omit<Server, 'install_count' | 'created_at'> = {
+    const server: NewServer = {
       id: serverId,
       slug,
       name,
