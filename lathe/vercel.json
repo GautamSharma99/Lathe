@@ -1,0 +1,8 @@
+{
+  "env": {
+    "ANAKIN_API_KEY": "@anakin_api_key",
+    "ANTHROPIC_API_KEY": "@anthropic_api_key",
+    "TURSO_DATABASE_URL": "@turso_database_url",
+    "TURSO_AUTH_TOKEN": "@turso_auth_token"
+  }
+}
